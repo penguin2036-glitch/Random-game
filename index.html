@@ -119,6 +119,29 @@
   .btn-secondary { background: #2a2f5c; color: var(--text); margin-bottom: 10px; }
   .hint { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 8px; }
 
+  .quick-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .quick-pick-btn {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid #34396b;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .quick-pick-btn.added {
+    border-color: var(--accent2);
+    background: #2a2a1f;
+    color: var(--accent2);
+    opacity: 0.75;
+  }
+
   .balloon-count-picker {
     display: flex;
     gap: 8px;
@@ -408,6 +431,9 @@
 
   <!-- Setup -->
   <div class="screen active" id="setupScreen">
+    <div class="section-label">고정 멤버 (클릭하면 바로 추가)</div>
+    <div class="quick-picks" id="quickPicks"></div>
+
     <div class="section-label">참가자 (순서대로 진행됩니다)</div>
     <div class="player-list" id="playerList"></div>
     <button class="btn btn-secondary" id="addPlayerBtn">+ 참가자 추가</button>
@@ -416,7 +442,7 @@
     <div class="balloon-count-picker" id="balloonCountPicker"></div>
 
     <button class="btn btn-primary" id="startGameBtn">게임 시작</button>
-    <div class="hint">참가자 최소 3명, 최대 8명 · 풍선 1개 선택 시 그 풍선이 무조건 폭탄 · 스페이스바로도 바람 넣기 가능</div>
+    <div class="hint">참가자 최소 3명, 최대 10명 · 풍선 1개 선택 시 그 풍선이 무조건 폭탄 · 스페이스바로도 바람 넣기 가능</div>
   </div>
 
   <!-- Game -->
@@ -470,6 +496,9 @@
     return MIN_BURST + Math.random() * (MAX_BURST - MIN_BURST);
   }
 
+  const MAX_PLAYERS = 10;
+  const FIXED_MEMBERS = ["미영", "순영", "주원", "영서", "예린", "소이", "장군", "재현", "규민", "보차"];
+
   let players = [];
   let balloonCount = 3;
   let COLORS = ALL_COLORS.slice(0, 3);
@@ -491,6 +520,7 @@
   const addPlayerBtn = document.getElementById("addPlayerBtn");
   const startGameBtn = document.getElementById("startGameBtn");
   const balloonCountPicker = document.getElementById("balloonCountPicker");
+  const quickPicks = document.getElementById("quickPicks");
   const turnName = document.getElementById("turnName");
   const balloonsEl = document.getElementById("balloons");
   const pumpBtn = document.getElementById("pumpBtn");
@@ -687,6 +717,7 @@
       if (playerList.children.length > 3) {
         row.remove();
         refreshOrderButtons();
+        renderQuickPicks();
       }
     });
     row.querySelector(".up-btn").addEventListener("click", () => {
@@ -699,6 +730,7 @@
       if (next) playerList.insertBefore(next, row);
       refreshOrderButtons();
     });
+    row.querySelector("input").addEventListener("input", renderQuickPicks);
     return row;
   }
 
@@ -707,6 +739,36 @@
     for (let i = 0; i < 3; i++) playerList.appendChild(createPlayerRow(""));
     refreshOrderButtons();
     renderBalloonCountPicker();
+    renderQuickPicks();
+  }
+
+  function renderQuickPicks() {
+    const currentNames = Array.from(playerList.querySelectorAll("input")).map(i => i.value.trim());
+    quickPicks.innerHTML = "";
+    FIXED_MEMBERS.forEach(name => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const isAdded = currentNames.includes(name);
+      btn.className = "quick-pick-btn" + (isAdded ? " added" : "");
+      btn.textContent = name;
+      btn.addEventListener("click", () => {
+        if (isAdded) return;
+        const inputs = Array.from(playerList.querySelectorAll("input"));
+        const emptyInput = inputs.find(i => i.value.trim() === "");
+        if (emptyInput) {
+          emptyInput.value = name;
+        } else if (playerList.children.length < MAX_PLAYERS) {
+          const row = createPlayerRow(name);
+          playerList.appendChild(row);
+          refreshOrderButtons();
+        } else {
+          alert(`최대 ${MAX_PLAYERS}명까지 가능합니다.`);
+          return;
+        }
+        renderQuickPicks();
+      });
+      quickPicks.appendChild(btn);
+    });
   }
 
   function renderBalloonCountPicker() {
@@ -725,9 +787,10 @@
   }
 
   addPlayerBtn.addEventListener("click", () => {
-    if (playerList.children.length >= 8) return;
+    if (playerList.children.length >= MAX_PLAYERS) return;
     playerList.appendChild(createPlayerRow(""));
     refreshOrderButtons();
+    renderQuickPicks();
   });
 
   startGameBtn.addEventListener("click", () => {
@@ -738,8 +801,8 @@
       alert("최소 3명의 이름을 입력해주세요.");
       return;
     }
-    if (names.length > 8) {
-      alert("최대 8명까지 가능합니다.");
+    if (names.length > MAX_PLAYERS) {
+      alert(`최대 ${MAX_PLAYERS}명까지 가능합니다.`);
       return;
     }
     players = names;
@@ -948,6 +1011,7 @@
     for (let i = 0; i < prevPlayers.length && i < playerList.children.length; i++) {
       playerList.children[i].querySelector("input").value = prevPlayers[i];
     }
+    renderQuickPicks();
     showScreen(setupScreen);
   }
 

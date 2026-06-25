@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>풍선 룰렛 - 커피 사기 게임</title>
+<style>
+  :root {
+    --bg: #0f1226;
+    --panel: #1a1f3d;
+    --accent: #ff5d73;
+    --accent2: #ffd166;
+    --text: #f4f4f9;
+    --muted: #9aa0c3;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(circle at 50% 0%, #232a55 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, sans-serif;
+    min-height: 100vh;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    margin: 8px 0 4px;
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+  .section-label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin: 6px 0 8px;
+    font-weight: 700;
+  }
+
+  /* ---- Setup screen ---- */
+  .player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .order-num {
+    width: 22px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .player-row input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #34396b;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 1rem;
+    min-width: 0;
+  }
+  .order-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .order-btns button, .player-row > .del-btn {
+    background: #2a2f5c;
+    border: none;
+    color: var(--muted);
+    border-radius: 8px;
+    width: 30px;
+    height: 22px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .player-row > .del-btn {
+    width: 36px;
+    height: 46px;
+    font-size: 1.05rem;
+  }
+  .order-btns button:disabled { opacity: 0.3; cursor: default; }
+
+  .btn {
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.08s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), #ff8a65); color: #1a0a0a; }
+  .btn-secondary { background: #2a2f5c; color: var(--text); margin-bottom: 10px; }
+  .hint { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 8px; }
+
+  .balloon-count-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .count-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #34396b;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .count-btn.chosen {
+    border-color: var(--accent);
+    background: #2a1f3d;
+    color: var(--accent2);
+  }
+
+  /* ---- Game screen ---- */
+  .back-btn {
+    align-self: flex-start;
+    background: none;
+    border: 1px solid #34396b;
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .turn-banner {
+    text-align: center;
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 18px;
+    border: 1px solid #34396b;
+  }
+  .turn-banner .name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--accent2);
+  }
+  .turn-banner .label { color: var(--muted); font-size: 0.85rem; }
+
+  .balloons {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    flex: 1;
+    gap: 8px;
+    padding: 10px 0 20px;
+  }
+  .balloon-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    gap: 8px;
+  }
+  .balloon-name {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .balloon-stage {
+    width: 100%;
+    height: 220px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    position: relative;
+  }
+  .balloon {
+    border-radius: 50% 50% 48% 48%;
+    transform-origin: center bottom;
+    transition: transform 0.05s linear, box-shadow 0.2s ease;
+    position: relative;
+  }
+  .balloon::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 14px;
+    background: #555;
+  }
+  .balloon.red { background: radial-gradient(circle at 35% 30%, #ff8a8a, #e53950); }
+  .balloon.blue { background: radial-gradient(circle at 35% 30%, #8ab4ff, #2f6fe5); }
+  .balloon.yellow { background: radial-gradient(circle at 35% 30%, #fff0a8, #f0b429); }
+
+  .balloon.shake { animation: shake 0.4s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px) rotate(-2deg); }
+    40% { transform: translateX(6px) rotate(2deg); }
+    60% { transform: translateX(-4px) rotate(-1deg); }
+    80% { transform: translateX(4px) rotate(1deg); }
+  }
+  .balloon.pop-out { animation: popout 0.35s ease-out forwards; }
+  @keyframes popout {
+    0% { transform: scale(1); opacity: 1; }
+    40% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.2); opacity: 0; }
+  }
+  .balloon.tense { animation: tenseShake 0.3s infinite; box-shadow: 0 0 18px 4px rgba(255, 93, 115, 0.55); }
+  @keyframes tenseShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-3px) rotate(-1.5deg); }
+    75% { transform: translateX(3px) rotate(1.5deg); }
+  }
+
+  .balloon-time {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .select-btn {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #34396b;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .select-btn.chosen {
+    border-color: var(--accent);
+    background: #2a1f3d;
+    color: var(--accent2);
+  }
+
+  .pump-zone {
+    margin-top: 8px;
+  }
+  .pump-btn {
+    width: 100%;
+    padding: 22px;
+    border-radius: 16px;
+    border: none;
+    font-size: 1.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ff5d73, #ff8a65);
+    color: #1a0a0a;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .pump-btn:disabled {
+    background: #2a2f5c;
+    color: var(--muted);
+  }
+  .pump-btn.active {
+    background: linear-gradient(135deg, #ffd166, #ff5d73);
+    transform: scale(0.98);
+  }
+  .pump-readout {
+    text-align: center;
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 0.85rem;
+    min-height: 1.2em;
+  }
+  .sound-toggle {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .sound-toggle button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .relief-banner {
+    position: fixed;
+    top: 18%;
+    left: 50%;
+    transform: translate(-50%, -10px);
+    background: #1f2a44;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    padding: 14px 22px;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .relief-banner.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  .balloon.dead { background: #3a3f5c !important; opacity: 0.45; }
+  .select-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .burst-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 9, 20, 0);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+  .burst-overlay.show {
+    opacity: 1;
+    background: rgba(8, 9, 20, 0.93);
+  }
+  .burst-overlay .burst-emoji {
+    font-size: 5rem;
+    animation: burstPop 0.4s ease;
+  }
+  .burst-overlay .burst-word {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-top: 8px;
+  }
+  .burst-overlay.bomb .burst-word { color: var(--accent); }
+  .burst-overlay.safe .burst-word { color: #5cf28a; }
+  .burst-overlay .burst-sub {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 1.05rem;
+  }
+  @keyframes burstPop {
+    0% { transform: scale(0.3); opacity: 0; }
+    55% { transform: scale(1.35); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---- Explosion / result screen ---- */
+  #explodeScreen {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .boom {
+    font-size: 3rem;
+    margin-bottom: 12px;
+  }
+  .loser-name {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .loser-sub {
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+  body.shake-screen { animation: screenshake 0.5s; }
+  @keyframes screenshake {
+    0%, 100% { transform: translate(0,0); }
+    10% { transform: translate(-8px, 4px); }
+    20% { transform: translate(8px, -4px); }
+    30% { transform: translate(-6px, -4px); }
+    40% { transform: translate(6px, 4px); }
+    50% { transform: translate(-4px, 2px); }
+    60% { transform: translate(4px, -2px); }
+    70% { transform: translate(-2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    90% { transform: translate(-1px, 1px); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🎈 풍선 룰렛</h1>
+  <div class="subtitle">패배자가 커피를 산다</div>
+
+  <!-- Setup -->
+  <div class="screen active" id="setupScreen">
+    <div class="section-label">참가자 (순서대로 진행됩니다)</div>
+    <div class="player-list" id="playerList"></div>
+    <button class="btn btn-secondary" id="addPlayerBtn">+ 참가자 추가</button>
+
+    <div class="section-label">풍선 개수</div>
+    <div class="balloon-count-picker" id="balloonCountPicker"></div>
+
+    <button class="btn btn-primary" id="startGameBtn">게임 시작</button>
+    <div class="hint">참가자 최소 3명, 최대 8명 · 풍선 1개 선택 시 그 풍선이 무조건 폭탄 · 스페이스바로도 바람 넣기 가능</div>
+  </div>
+
+  <!-- Game -->
+  <div class="screen" id="gameScreen">
+    <button type="button" class="back-btn" id="backToSetupBtn">↩ 처음으로</button>
+    <div class="turn-banner">
+      <div class="label">현재 차례</div>
+      <div class="name" id="turnName">-</div>
+    </div>
+    <div class="balloons" id="balloons"></div>
+    <div class="relief-banner" id="reliefBanner"></div>
+    <div class="burst-overlay" id="burstOverlay">
+      <div class="burst-emoji">💥</div>
+      <div class="burst-word" id="burstWord">꽝!!</div>
+      <div class="burst-sub" id="burstSub"></div>
+    </div>
+    <div class="pump-zone">
+      <button class="pump-btn" id="pumpBtn" disabled>풍선을 선택하세요</button>
+      <div class="pump-readout" id="pumpReadout"></div>
+      <div class="sound-toggle">
+        <button type="button" id="soundToggleBtn">🔊 소리 끄기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explosion / Result -->
+  <div class="screen" id="explodeScreen">
+    <div class="boom">💥💥💥</div>
+    <div class="loser-name" id="loserName">-</div>
+    <div class="loser-sub" id="loserSub">당첨! 커피 사세요 ☕</div>
+    <button class="btn btn-primary" id="restartBtn">다시 하기</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const ALL_COLORS = [
+    { key: "red", name: "빨간 풍선" },
+    { key: "blue", name: "파란 풍선" },
+    { key: "yellow", name: "노란 풍선" },
+  ];
+  const MIN_BURST = 3;   // seconds
+  const MAX_BURST = 10;  // seconds
+  const MESSAGE_THRESHOLD = 3; // seconds, start showing suspense messages after a pump past this
+  const TENSE_THRESHOLD = 5;   // seconds, start threatening shake animation past this
+  const MIN_SIZE = 60;   // px
+  const MAX_SIZE = 220;  // px (visual cap, well before guaranteed pop range)
+  const VISUAL_FULL_TIME = 10; // seconds at which balloon visually reaches MAX_SIZE
+
+  function randomBurst() {
+    return MIN_BURST + Math.random() * (MAX_BURST - MIN_BURST);
+  }
+
+  let players = [];
+  let balloonCount = 3;
+  let COLORS = ALL_COLORS.slice(0, 3);
+  let bombIndex = -1;
+  let burstThreshold = [];
+  let balloonTime = [];
+  let aliveBalloons = [];
+  let currentTurn = 0;
+  let selectedBalloon = -1;
+  let pumping = false;
+  let pumpStart = 0;
+  let pumpRAF = null;
+  let soundOn = true;
+
+  const setupScreen = document.getElementById("setupScreen");
+  const gameScreen = document.getElementById("gameScreen");
+  const explodeScreen = document.getElementById("explodeScreen");
+  const playerList = document.getElementById("playerList");
+  const addPlayerBtn = document.getElementById("addPlayerBtn");
+  const startGameBtn = document.getElementById("startGameBtn");
+  const balloonCountPicker = document.getElementById("balloonCountPicker");
+  const turnName = document.getElementById("turnName");
+  const balloonsEl = document.getElementById("balloons");
+  const pumpBtn = document.getElementById("pumpBtn");
+  const pumpReadout = document.getElementById("pumpReadout");
+  const loserName = document.getElementById("loserName");
+  const restartBtn = document.getElementById("restartBtn");
+  const backToSetupBtn = document.getElementById("backToSetupBtn");
+  const soundToggleBtn = document.getElementById("soundToggleBtn");
+  const reliefBanner = document.getElementById("reliefBanner");
+  const burstOverlay = document.getElementById("burstOverlay");
+  const burstWord = document.getElementById("burstWord");
+  const burstSub = document.getElementById("burstSub");
+
+  const FUNNY_MESSAGES = [
+    "와 살았다!", "휴 다행이다!", "헐 쫄렸다!", "운이 좋았다!", "죽을 뻔했네!",
+    "심장 떨어질 뻔!", "아찔했다!", "오늘 운 좋네!", "간 떨어지는 줄!", "터질 줄 알았는데!",
+    "위험했다 진짜!", "이번엔 무사통과!", "긴장되네 정말!", "다음 사람 기도해라!", "휴... 진정하자",
+    "오 무사고!", "살았다 살았다!", "운빵 인정!", "조마조마했다!", "심장아 나대지마!",
+    "아 놀랐잖아!", "휴, 식은땀 난다!"
+  ];
+  const POP_MESSAGES = [
+    "펑! 그래도 살았다!", "빵! 깜짝 놀랐지?", "터졌다! 가짜였어!", "쾅! 휴 다행이다!",
+    "퍽! 진짜인 줄 알았네!", "펑! 심장 떨어질 뻔!", "꽝인 줄... 아니었다!", "펑! 다음 사람 차례!"
+  ];
+
+  // ---- Sound (synthesized via Web Audio API, no external files) ----
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  let pumpOsc = null, pumpGain = null;
+  function startPumpSound() {
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    pumpOsc = ctx.createOscillator();
+    pumpGain = ctx.createGain();
+    pumpOsc.type = "sine";
+    pumpOsc.frequency.value = 220;
+    pumpGain.gain.value = 0.0001;
+    pumpGain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.05);
+    pumpOsc.connect(pumpGain).connect(ctx.destination);
+    pumpOsc.start();
+  }
+  function updatePumpSound(progressRatio) {
+    if (!soundOn || !pumpOsc) return;
+    const freq = 220 + Math.min(progressRatio, 1) * 380;
+    pumpOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+  }
+  function stopPumpSound() {
+    if (!pumpOsc) return;
+    const ctx = audioCtx;
+    try {
+      pumpGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+      pumpOsc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+    pumpOsc = null;
+    pumpGain = null;
+  }
+  function playExplosionSound() {
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    const bufferSize = ctx.sampleRate * 0.6;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 800;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.9;
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start();
+
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(120, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
+    oscGain.gain.setValueAtTime(0.6, ctx.currentTime);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.connect(oscGain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  }
+
+  function playReliefSound() {
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    [523.25, 659.25].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + i * 0.1;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    });
+  }
+
+  function playFakePopSound() {
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    const bufferSize = ctx.sampleRate * 0.18;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1400;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.6;
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start();
+
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(600, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
+    oscGain.gain.setValueAtTime(0.3, ctx.currentTime);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(oscGain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+  }
+
+  function showReliefBanner(text) {
+    reliefBanner.textContent = text;
+    reliefBanner.classList.add("show");
+    setTimeout(() => reliefBanner.classList.remove("show"), 1100);
+  }
+
+  function showBurstOverlay(isBomb, subMessage, callback, duration) {
+    burstOverlay.className = "burst-overlay show " + (isBomb ? "bomb" : "safe");
+    burstWord.textContent = isBomb ? "꽝!!" : "통과!";
+    burstSub.textContent = subMessage || "";
+    setTimeout(() => {
+      burstOverlay.classList.remove("show");
+      if (callback) callback();
+    }, duration || 700);
+  }
+
+  soundToggleBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundToggleBtn.textContent = soundOn ? "🔊 소리 끄기" : "🔇 소리 켜기";
+  });
+
+  function showScreen(el) {
+    [setupScreen, gameScreen, explodeScreen].forEach(s => s.classList.remove("active"));
+    el.classList.add("active");
+  }
+
+  function refreshOrderButtons() {
+    const rows = Array.from(playerList.children);
+    rows.forEach((row, idx) => {
+      row.querySelector(".order-num").textContent = idx + 1;
+      const up = row.querySelector(".up-btn");
+      const down = row.querySelector(".down-btn");
+      up.disabled = idx === 0;
+      down.disabled = idx === rows.length - 1;
+    });
+  }
+
+  function createPlayerRow(value) {
+    const row = document.createElement("div");
+    row.className = "player-row";
+    row.innerHTML = `
+      <div class="order-num">1</div>
+      <input type="text" placeholder="참가자 이름" value="${value || ""}">
+      <div class="order-btns">
+        <button type="button" class="up-btn" aria-label="위로">▲</button>
+        <button type="button" class="down-btn" aria-label="아래로">▼</button>
+      </div>
+      <button type="button" class="del-btn" aria-label="삭제">✕</button>
+    `;
+    row.querySelector(".del-btn").addEventListener("click", () => {
+      if (playerList.children.length > 3) {
+        row.remove();
+        refreshOrderButtons();
+      }
+    });
+    row.querySelector(".up-btn").addEventListener("click", () => {
+      const prev = row.previousElementSibling;
+      if (prev) playerList.insertBefore(row, prev);
+      refreshOrderButtons();
+    });
+    row.querySelector(".down-btn").addEventListener("click", () => {
+      const next = row.nextElementSibling;
+      if (next) playerList.insertBefore(next, row);
+      refreshOrderButtons();
+    });
+    return row;
+  }
+
+  function initSetup() {
+    playerList.innerHTML = "";
+    for (let i = 0; i < 3; i++) playerList.appendChild(createPlayerRow(""));
+    refreshOrderButtons();
+    renderBalloonCountPicker();
+  }
+
+  function renderBalloonCountPicker() {
+    balloonCountPicker.innerHTML = "";
+    [1, 2, 3].forEach(n => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "count-btn" + (balloonCount === n ? " chosen" : "");
+      btn.textContent = n + "개";
+      btn.addEventListener("click", () => {
+        balloonCount = n;
+        renderBalloonCountPicker();
+      });
+      balloonCountPicker.appendChild(btn);
+    });
+  }
+
+  addPlayerBtn.addEventListener("click", () => {
+    if (playerList.children.length >= 8) return;
+    playerList.appendChild(createPlayerRow(""));
+    refreshOrderButtons();
+  });
+
+  startGameBtn.addEventListener("click", () => {
+    const names = Array.from(playerList.querySelectorAll("input"))
+      .map(i => i.value.trim())
+      .filter(Boolean);
+    if (names.length < 3) {
+      alert("최소 3명의 이름을 입력해주세요.");
+      return;
+    }
+    if (names.length > 8) {
+      alert("최대 8명까지 가능합니다.");
+      return;
+    }
+    players = names;
+    ensureAudio();
+    startGame();
+  });
+
+  function startGame() {
+    COLORS = ALL_COLORS.slice(0, balloonCount);
+    bombIndex = Math.floor(Math.random() * balloonCount);
+    burstThreshold = COLORS.map(() => randomBurst());
+    balloonTime = new Array(balloonCount).fill(0);
+    aliveBalloons = new Array(balloonCount).fill(true);
+    currentTurn = 0;
+    selectedBalloon = -1;
+    renderBalloons();
+    updateTurnBanner();
+    showScreen(gameScreen);
+  }
+
+  function updateTurnBanner() {
+    turnName.textContent = players[currentTurn];
+    pumpBtn.disabled = true;
+    pumpBtn.textContent = "풍선을 선택하세요";
+    pumpReadout.textContent = "";
+    selectedBalloon = -1;
+    renderBalloons();
+  }
+
+  function sizeForTime(t) {
+    const ratio = Math.min(t / VISUAL_FULL_TIME, 1);
+    return MIN_SIZE + ratio * (MAX_SIZE - MIN_SIZE);
+  }
+
+  function renderBalloons() {
+    balloonsEl.innerHTML = "";
+    COLORS.forEach((c, idx) => {
+      const wrap = document.createElement("div");
+      if (!aliveBalloons[idx]) {
+        wrap.className = "balloon-wrap popped";
+        wrap.innerHTML = `
+          <div class="balloon-name">${c.name}</div>
+          <div class="balloon-stage">
+            <div class="balloon ${c.key} dead" style="width:50px;height:58px;"></div>
+          </div>
+          <div class="balloon-time">터짐 💨</div>
+          <button type="button" class="select-btn" disabled>선택 불가</button>
+        `;
+        balloonsEl.appendChild(wrap);
+        return;
+      }
+      wrap.className = "balloon-wrap";
+      const size = sizeForTime(balloonTime[idx]);
+      const tenseClass = balloonTime[idx] >= TENSE_THRESHOLD ? " tense" : "";
+      wrap.innerHTML = `
+        <div class="balloon-name">${c.name}</div>
+        <div class="balloon-stage">
+          <div class="balloon ${c.key}${tenseClass}" style="width:${size}px;height:${size * 1.15}px;"></div>
+        </div>
+        <div class="balloon-time">${balloonTime[idx].toFixed(2)}초</div>
+        <button type="button" class="select-btn ${selectedBalloon === idx ? "chosen" : ""}" data-idx="${idx}">
+          ${selectedBalloon === idx ? "선택됨" : "선택"}
+        </button>
+      `;
+      balloonsEl.appendChild(wrap);
+    });
+    balloonsEl.querySelectorAll(".select-btn:not([disabled])").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedBalloon = parseInt(btn.dataset.idx, 10);
+        renderBalloons();
+        pumpBtn.disabled = false;
+        pumpBtn.textContent = `${COLORS[selectedBalloon].name} 불기 (누르고 있기)`;
+      });
+    });
+  }
+
+  function startPump(e) {
+    if (pumpBtn.disabled || pumping) return;
+    e.preventDefault();
+    pumping = true;
+    pumpStart = performance.now();
+    pumpBtn.classList.add("active");
+    startPumpSound();
+    tickPump();
+  }
+
+  function tickPump() {
+    if (!pumping) return;
+    const elapsed = (performance.now() - pumpStart) / 1000;
+    const liveTime = balloonTime[selectedBalloon] + elapsed;
+    pumpReadout.textContent = `누적: ${liveTime.toFixed(2)}초`;
+    const wrap = balloonsEl.children[selectedBalloon];
+    if (wrap) {
+      const stage = wrap.querySelector(".balloon");
+      const timeLabel = wrap.querySelector(".balloon-time");
+      const size = sizeForTime(liveTime);
+      if (stage) {
+        stage.style.width = size + "px";
+        stage.style.height = (size * 1.15) + "px";
+        stage.classList.toggle("tense", liveTime >= TENSE_THRESHOLD);
+      }
+      if (timeLabel) timeLabel.textContent = `${liveTime.toFixed(2)}초`;
+    }
+    updatePumpSound(liveTime / VISUAL_FULL_TIME);
+
+    if (liveTime >= burstThreshold[selectedBalloon]) {
+      endPump(selectedBalloon === bombIndex ? "bomb" : "fakepop");
+      return;
+    }
+    pumpRAF = requestAnimationFrame(tickPump);
+  }
+
+  function endPump(result) {
+    if (!pumping) return;
+    pumping = false;
+    cancelAnimationFrame(pumpRAF);
+    pumpBtn.classList.remove("active");
+    stopPumpSound();
+    const elapsed = (performance.now() - pumpStart) / 1000;
+    balloonTime[selectedBalloon] += elapsed;
+    const liveTime = balloonTime[selectedBalloon];
+
+    if (result === "bomb") {
+      triggerExplosion();
+      return;
+    }
+
+    if (result === "fakepop") {
+      triggerFakePop(selectedBalloon);
+      return;
+    }
+
+    if (liveTime >= MESSAGE_THRESHOLD) {
+      renderBalloons();
+      const msg = FUNNY_MESSAGES[Math.floor(Math.random() * FUNNY_MESSAGES.length)];
+      showReliefBanner(msg);
+      setTimeout(nextTurn, 700);
+      return;
+    }
+
+    renderBalloons();
+    nextTurn();
+  }
+
+  function stopPump(e) {
+    if (e) e.preventDefault();
+    endPump(false);
+  }
+
+  pumpBtn.addEventListener("mousedown", startPump);
+  pumpBtn.addEventListener("touchstart", startPump, { passive: false });
+  pumpBtn.addEventListener("mouseup", stopPump);
+  pumpBtn.addEventListener("mouseleave", stopPump);
+  pumpBtn.addEventListener("touchend", stopPump);
+  pumpBtn.addEventListener("touchcancel", stopPump);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space") return;
+    if (!gameScreen.classList.contains("active")) return;
+    e.preventDefault();
+    startPump(e);
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code !== "Space") return;
+    if (!gameScreen.classList.contains("active")) return;
+    e.preventDefault();
+    stopPump(e);
+  });
+
+  function nextTurn() {
+    currentTurn = (currentTurn + 1) % players.length;
+    updateTurnBanner();
+  }
+
+  function triggerExplosion() {
+    const stage = balloonsEl.querySelectorAll(".balloon")[selectedBalloon];
+    if (stage) stage.classList.add("shake");
+    document.body.classList.add("shake-screen");
+    playExplosionSound();
+    showBurstOverlay(true, "", () => {
+      document.body.classList.remove("shake-screen");
+      loserName.textContent = `${players[currentTurn]} 당첨!`;
+      showScreen(explodeScreen);
+    }, 750);
+  }
+
+  function triggerFakePop(idx) {
+    const stage = balloonsEl.querySelectorAll(".balloon")[idx];
+    if (stage) stage.classList.add("pop-out");
+    playFakePopSound();
+    aliveBalloons[idx] = false;
+    const pool = FUNNY_MESSAGES.concat(POP_MESSAGES);
+    const msg = pool[Math.floor(Math.random() * pool.length)];
+    showBurstOverlay(false, msg, () => {
+      renderBalloons();
+      nextTurn();
+    }, 650);
+  }
+
+  function goToSetup() {
+    pumping = false;
+    cancelAnimationFrame(pumpRAF);
+    stopPumpSound();
+    const prevPlayers = players;
+    initSetup();
+    for (let i = 0; i < prevPlayers.length && i < playerList.children.length; i++) {
+      playerList.children[i].querySelector("input").value = prevPlayers[i];
+    }
+    showScreen(setupScreen);
+  }
+
+  restartBtn.addEventListener("click", goToSetup);
+
+  backToSetupBtn.addEventListener("click", () => {
+    if (confirm("진행 중인 게임을 그만두고 처음으로 돌아갈까요?")) {
+      goToSetup();
+    }
+  });
+
+  initSetup();
+})();
+</script>
+</body>
+</html>
